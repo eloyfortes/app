@@ -9,15 +9,18 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usersService } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../constants/theme';
+import Card from '../../components/Card';
+import { useToast } from '../../contexts/ToastContext';
 
 interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'CLIENT';
+  role: 'ADMIN' | 'CLIENT' | 'CLIENT_PREMIUM';
   approved: boolean;
   createdAt: string;
 }
@@ -25,6 +28,8 @@ interface User {
 type TabType = 'pending' | 'approved';
 
 export default function UsersScreen() {
+  const insets = useSafeAreaInsets();
+  const { showSuccess, showError } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('pending');
@@ -38,7 +43,7 @@ export default function UsersScreen() {
       const response = await usersService.getAll();
       setUsers(response.data);
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível carregar os usuários');
+      showError('Não foi possível carregar os usuários');
     } finally {
       setLoading(false);
     }
@@ -55,10 +60,32 @@ export default function UsersScreen() {
           onPress: async () => {
             try {
               await usersService.approve(userId);
-              Alert.alert('Sucesso', 'Usuário aprovado com sucesso');
+              showSuccess('Usuário aprovado com sucesso');
               loadUsers();
-            } catch (error) {
-              Alert.alert('Erro', 'Erro ao aprovar usuário');
+            } catch (error: any) {
+              showError(error.response?.data?.message || 'Erro ao aprovar usuário');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handlePromoteToPremium = async (userId: string, userName: string) => {
+    Alert.alert(
+      'Promover para Premium',
+      `Deseja promover "${userName}" para cliente premium?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Promover',
+          onPress: async () => {
+            try {
+              await usersService.promoteToPremium(userId);
+              showSuccess('Usuário promovido para premium com sucesso');
+              loadUsers();
+            } catch (error: any) {
+              showError(error.response?.data?.message || 'Erro ao promover usuário');
             }
           },
         },
@@ -67,19 +94,21 @@ export default function UsersScreen() {
   };
 
   const renderUser = ({ item }: { item: User }) => (
-    <View style={styles.userCard}>
+    <Card style={styles.userCardContent}>
       <View style={styles.userInfo}>
         <Text style={styles.userName}>{item.name}</Text>
         <Text style={styles.userEmail}>{item.email}</Text>
         <View style={styles.userMeta}>
-          <View
-            style={[
-              styles.badge,
-              item.role === 'ADMIN' ? styles.adminBadge : styles.clientBadge,
-            ]}
-          >
-            <Text style={styles.badgeText}>{item.role}</Text>
-          </View>
+          {item.role === 'ADMIN' && (
+            <View style={[styles.badge, styles.adminBadge]}>
+              <Text style={styles.badgeText}>ADMIN</Text>
+            </View>
+          )}
+          {item.role === 'CLIENT_PREMIUM' && (
+            <View style={[styles.badge, styles.premiumBadge]}>
+              <Text style={styles.badgeText}>Premium</Text>
+            </View>
+          )}
           {item.approved ? (
             <View style={[styles.badge, styles.approvedBadge]}>
               <Text style={styles.badgeText}>Aprovado</Text>
@@ -91,17 +120,28 @@ export default function UsersScreen() {
           )}
         </View>
       </View>
-      {!item.approved && (
-        <TouchableOpacity
-          style={styles.approveButton}
-          onPress={() => handleApprove(item.id, item.name)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
-          <Text style={styles.approveButtonText}>Aprovar</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+      <View style={styles.userActions}>
+        {!item.approved && (
+          <TouchableOpacity
+            style={styles.approveButton}
+            onPress={() => handleApprove(item.id, item.name)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
+            <Text style={styles.approveButtonText}>Aprovar</Text>
+          </TouchableOpacity>
+        )}
+        {item.approved && item.role === 'CLIENT' && (
+          <TouchableOpacity
+            style={styles.promoteButton}
+            onPress={() => handlePromoteToPremium(item.id, item.name)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.promoteButtonText}>Promover Premium</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </Card>
   );
 
   const pendingUsers = users.filter((u) => !u.approved);
@@ -160,7 +200,7 @@ export default function UsersScreen() {
         data={currentUsers}
         renderItem={renderUser}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom, 20) + 80 }]}
         refreshControl={
           <RefreshControl 
             refreshing={loading} 
@@ -198,8 +238,6 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: theme.colors.backgroundSecondary,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
     paddingHorizontal: theme.spacing.md,
   },
   tab: {
@@ -248,7 +286,6 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: theme.spacing.lg,
-    paddingBottom: 40,
   },
   emptyContainer: {
     flex: 1,
@@ -262,21 +299,9 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     textAlign: 'center',
   },
-  userCard: {
-    backgroundColor: theme.colors.backgroundSecondary,
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+  userCardContent: {
+    flexDirection: 'column',
+    gap: theme.spacing.md,
   },
   userInfo: {
     flex: 1,
@@ -314,6 +339,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.success,
   },
+  premiumBadge: {
+    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+  },
   approvedBadge: {
     backgroundColor: 'rgba(76, 175, 80, 0.2)',
     borderWidth: 1,
@@ -330,6 +360,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1,
   },
+  userActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
   approveButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -337,9 +371,27 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     gap: theme.spacing.sm,
+    flex: 1,
+    justifyContent: 'center',
   },
   approveButtonText: {
     ...theme.typography.button,
     color: theme.colors.textInverse,
+  },
+  promoteButton: {
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.textTertiary,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    alignSelf: 'flex-start',
+  },
+  promoteButtonText: {
+    ...theme.typography.body,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
   },
 });

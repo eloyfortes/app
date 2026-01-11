@@ -20,6 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { roomsService } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../constants/theme';
+import Card from '../../components/Card';
+import RoomCalendarScreen from './RoomCalendarScreen';
 
 interface Room {
   id: string;
@@ -37,6 +39,8 @@ export default function RoomsScreen() {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [calendarVisible, setCalendarVisible] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     size: '',
@@ -137,38 +141,58 @@ export default function RoomsScreen() {
     );
   };
 
+  const handleViewCalendar = (room: Room) => {
+    setSelectedRoom(room);
+    setCalendarVisible(true);
+  };
+
   const renderRoom = ({ item }: { item: Room }) => (
-    <View style={styles.roomCard}>
+    <Card style={styles.roomCard}>
       <View style={styles.roomHeader}>
-        <Text style={styles.roomName}>{item.name}</Text>
+        <View style={styles.roomTitleContainer}>
+          <Text style={styles.roomName}>{item.name}</Text>
+          <Text style={styles.roomSize}>{item.size}</Text>
+        </View>
         <View style={styles.roomActions}>
           <TouchableOpacity onPress={() => handleEditRoom(item)} activeOpacity={0.7}>
-            <Ionicons name="create-outline" size={24} color={theme.colors.primary} />
+            <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => handleDeleteRoom(item)} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={24} color={theme.colors.error} />
+            <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
           </TouchableOpacity>
         </View>
       </View>
+      
       <View style={styles.roomDetails}>
-        <View style={styles.detailItem}>
-          <Ionicons name="resize-outline" size={16} color={theme.colors.textSecondary} />
-          <Text style={styles.detailText}>Tamanho: {item.size}</Text>
+        <View style={styles.detailRow}>
+          <View style={styles.detailItem}>
+            <Ionicons name="people-outline" size={18} color={theme.colors.primary} />
+            <Text style={styles.detailText}>{item.capacity} pessoas</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Ionicons name="tv-outline" size={18} color={theme.colors.primary} />
+            <Text style={styles.detailText}>{item.tvs} TVs</Text>
+          </View>
         </View>
-        <View style={styles.detailItem}>
-          <Ionicons name="people-outline" size={16} color={theme.colors.textSecondary} />
-          <Text style={styles.detailText}>Capacidade: {item.capacity} pessoas</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Ionicons name="tv-outline" size={16} color={theme.colors.textSecondary} />
-          <Text style={styles.detailText}>TVs: {item.tvs}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Ionicons name="videocam-outline" size={16} color={theme.colors.textSecondary} />
-          <Text style={styles.detailText}>Projetores: {item.projectors}</Text>
+        <View style={styles.detailRow}>
+          <View style={styles.detailItem}>
+            <Ionicons name="videocam-outline" size={18} color={theme.colors.primary} />
+            <Text style={styles.detailText}>{item.projectors} Projetores</Text>
+          </View>
         </View>
       </View>
-    </View>
+
+      <View style={styles.roomFooter}>
+        <TouchableOpacity
+          style={styles.calendarButton}
+          onPress={() => handleViewCalendar(item)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="calendar-outline" size={18} color={theme.colors.textInverse} />
+          <Text style={styles.calendarButtonText}>Ver Horários</Text>
+        </TouchableOpacity>
+      </View>
+    </Card>
   );
 
   if (loading) {
@@ -293,6 +317,17 @@ export default function RoomsScreen() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {selectedRoom && (
+        <RoomCalendarScreen
+          room={selectedRoom}
+          visible={calendarVisible}
+          onClose={() => {
+            setCalendarVisible(false);
+            setSelectedRoom(null);
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -324,51 +359,86 @@ const styles = StyleSheet.create({
     color: theme.colors.textInverse,
   },
   list: {
-    padding: 20,
+    padding: theme.spacing.lg,
     paddingBottom: 40,
   },
   roomCard: {
-    backgroundColor: theme.colors.backgroundSecondary,
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    overflow: 'hidden',
   },
   roomHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
+    alignItems: 'flex-start',
+    marginBottom: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.borderLight,
+  },
+  roomTitleContainer: {
+    flex: 1,
+    gap: 4,
   },
   roomName: {
     ...theme.typography.h3,
     color: theme.colors.textPrimary,
+    fontWeight: '700',
+  },
+  roomSize: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    textTransform: 'capitalize',
   },
   roomActions: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
+    alignItems: 'center',
   },
   roomDetails: {
-    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.md,
     gap: theme.spacing.sm,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    flexWrap: 'wrap',
   },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
+    flex: 1,
+    minWidth: '45%',
   },
   detailText: {
     ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  roomFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.borderLight,
+  },
+  calendarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    ...theme.shadows.small,
+  },
+  calendarButtonText: {
+    ...theme.typography.body,
+    color: theme.colors.textInverse,
+    fontWeight: '600',
+    fontSize: 14,
   },
   modalOverlay: {
     flex: 1,

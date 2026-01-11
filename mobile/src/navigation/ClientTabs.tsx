@@ -20,10 +20,9 @@ export default function ClientTabs() {
         headerShown: true,
         headerStyle: { 
           backgroundColor: theme.colors.backgroundSecondary,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
           elevation: 0,
           shadowOpacity: 0,
+          borderBottomWidth: 0,
         },
         headerTintColor: theme.colors.primary,
         headerTitleStyle: {
@@ -32,7 +31,7 @@ export default function ClientTabs() {
           color: theme.colors.textPrimary,
         },
         tabBarStyle: {
-          backgroundColor: 'transparent',
+          backgroundColor: theme.colors.backgroundSecondary,
           borderTopWidth: 0,
           elevation: 0,
           shadowOpacity: 0,
@@ -45,9 +44,6 @@ export default function ClientTabs() {
           right: 0,
           bottom: 0,
         },
-        tabBarBackground: () => (
-          <View style={styles.tabBarBackground} />
-        ),
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textTertiary,
         tabBarLabelStyle: {
@@ -83,13 +79,3 @@ export default function ClientTabs() {
   );
 }
 
-const styles = StyleSheet.create({
-  tabBarBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.backgroundSecondary,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-});

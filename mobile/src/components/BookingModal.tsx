@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
@@ -18,6 +17,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bookingsService, roomsService } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import ToastInline from './ToastInline';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -66,6 +68,8 @@ export default function BookingModal({
   onSuccess,
 }: BookingModalProps) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { showSuccess, showError, showWarning } = useToast();
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentStep, setCurrentStep] = useState<BookingStep>('day');
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -74,6 +78,11 @@ export default function BookingModal({
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [inlineToast, setInlineToast] = useState<{ visible: boolean; type: 'success' | 'error' | 'warning'; message: string }>({
+    visible: false,
+    type: 'error',
+    message: '',
+  });
 
   // Resetar quando o modal fechar
   useEffect(() => {
@@ -225,7 +234,7 @@ export default function BookingModal({
 
   const handleConfirm = async () => {
     if (!selectedDay || !selectedTime || !selectedDuration) {
-      Alert.alert('Campos obrigatórios', 'Selecione dia, horário e duração');
+      showError('Selecione dia, horário e duração');
       return;
     }
 
@@ -240,28 +249,50 @@ export default function BookingModal({
 
     // Validar que não está no passado
     if (startDateTime < new Date()) {
-      Alert.alert('Erro', 'Não é possível agendar no passado');
+      showError('Não é possível agendar no passado');
       return;
     }
 
     setLoading(true);
     try {
-      await bookingsService.create({
+      const response = await bookingsService.create({
         roomId: room.id,
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
         expectedDuration: selectedDuration,
       });
+      
+      const bookingStatus = response.data.status;
+      const isPremium = user?.role === 'CLIENT_PREMIUM';
+      
+      // Se for cliente comum, mostra mensagem sobre pagamento
+      if (!isPremium && bookingStatus === 'PENDING') {
+        showWarning('Sua reserva foi criada com sucesso! Ela será liberada mediante pagamento e aprovação do administrador.');
+      } else {
+        // Se for premium ou já aprovado
+        showSuccess('Sua reserva foi criada e confirmada com sucesso!');
+      }
+      
       onSuccess();
       setCurrentStep('day');
       setSelectedDay(null);
       setSelectedTime(null);
       setSelectedDuration(null);
+      onClose();
     } catch (error: any) {
+      console.log('Erro ao criar reserva:', error);
+      console.log('Erro response:', error.response);
       const errorMessage =
         error.response?.data?.message ||
-        'Erro ao criar reserva. Verifique se você já não possui uma reserva ativa.';
-      Alert.alert('Erro ao reservar', errorMessage);
+        error.message ||
+        'Erro ao criar reserva. Verifique se você já não possui uma reserva ativa neste dia.';
+      console.log('Mostrando erro Toast:', errorMessage);
+      // Mostrar Toast inline dentro do Modal
+      setInlineToast({
+        visible: true,
+        type: 'error',
+        message: errorMessage,
+      });
     } finally {
       setLoading(false);
     }
@@ -648,6 +679,13 @@ export default function BookingModal({
         onRequestClose={onClose}
       >
         <View style={styles.modalOverlay}>
+          <ToastInline
+            visible={inlineToast.visible}
+            type={inlineToast.type}
+            message={inlineToast.message}
+            onHide={() => setInlineToast((prev) => ({ ...prev, visible: false }))}
+            duration={4000}
+          />
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.keyboardView}

@@ -41,6 +41,7 @@ export const authService = {
 export const usersService = {
   getAll: () => api.get('/users'),
   approve: (id: string) => api.patch(`/users/${id}/approve`),
+  promoteToPremium: (id: string) => api.patch(`/users/${id}/promote-premium`),
 };
 
 export const roomsService = {
@@ -55,13 +56,25 @@ export const roomsService = {
 };
 
 export const bookingsService = {
-  getAll: () => api.get('/bookings'),
+  getAll: (date?: string, status?: string, page?: number, limit?: number) => {
+    const params: any = {};
+    if (date) params.date = date;
+    if (status) params.status = status;
+    if (page) params.page = page;
+    if (limit) params.limit = limit;
+    return api.get('/bookings', { params });
+  },
   getById: (id: string) => api.get(`/bookings/${id}`),
   create: (data: any) => api.post('/bookings', data),
   cancel: (id: string) => api.patch(`/bookings/${id}/cancel`),
   approve: (id: string) => api.patch(`/bookings/${id}/approve`),
   getOccupiedTimeSlots: (roomId: string, date: string) => 
     api.get(`/bookings/room/${roomId}/occupied-slots`, { params: { date } }),
+  getRoomBookings: (roomId: string, date?: string) => {
+    const params: any = {};
+    if (date) params.date = date;
+    return api.get(`/bookings/room/${roomId}/bookings`, { params });
+  },
 };
 
 export default api;

@@ -22,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { roomsService } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import BookingModal from '../../components/BookingModal';
+import Card from '../../components/Card';
 import { theme } from '../../constants/theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -110,7 +111,6 @@ export default function RoomsListScreen() {
     setShowBookingModal(false);
     setSelectedRoom(null);
     loadRooms();
-    Alert.alert('Sucesso', 'Reserva criada com sucesso! Aguardando aprovação.');
   };
 
   const handleApplyFeatureFilter = () => {
@@ -157,7 +157,7 @@ export default function RoomsListScreen() {
   };
 
   const renderRoom = ({ item }: { item: Room }) => (
-    <View style={styles.roomCard}>
+    <Card>
       <View style={styles.roomHeader}>
         <View style={styles.roomHeaderLeft}>
           <Ionicons name="business" size={24} color={theme.colors.primary} />
@@ -195,7 +195,7 @@ export default function RoomsListScreen() {
         <Ionicons name="calendar-outline" size={20} color={theme.colors.textInverse} />
         <Text style={styles.bookButtonText}>Reservar sala</Text>
       </TouchableOpacity>
-    </View>
+    </Card>
   );
 
   if (loading && rooms.length === 0) {
@@ -424,8 +424,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.backgroundSecondary,
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -458,8 +456,6 @@ const styles = StyleSheet.create({
   },
   activeFiltersBar: {
     backgroundColor: theme.colors.backgroundSecondary,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
     paddingVertical: theme.spacing.sm,
   },
   activeFiltersContent: {
@@ -491,19 +487,6 @@ const styles = StyleSheet.create({
   list: {
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.xxl,
-  },
-  roomCard: {
-    backgroundColor: theme.colors.backgroundSecondary,
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   roomHeader: {
     flexDirection: 'row',

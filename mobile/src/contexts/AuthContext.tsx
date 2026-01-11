@@ -6,7 +6,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'CLIENT';
+  role: 'ADMIN' | 'CLIENT' | 'CLIENT_PREMIUM';
 }
 
 interface AuthContextData {

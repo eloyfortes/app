@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import RoomsScreen from '../screens/admin/RoomsScreen';
 import UsersScreen from '../screens/admin/UsersScreen';
-import BookingsScreen from '../screens/admin/BookingsScreen';
 import { theme } from '../constants/theme';
 
 const Tab = createBottomTabNavigator();
@@ -22,10 +21,9 @@ export default function AdminTabs() {
         headerShown: true,
         headerStyle: { 
           backgroundColor: theme.colors.backgroundSecondary,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
           elevation: 0,
           shadowOpacity: 0,
+          borderBottomWidth: 0,
         },
         headerTintColor: theme.colors.primary,
         headerTitleStyle: {
@@ -34,7 +32,7 @@ export default function AdminTabs() {
           color: theme.colors.textPrimary,
         },
         tabBarStyle: {
-          backgroundColor: 'transparent',
+          backgroundColor: theme.colors.backgroundSecondary,
           borderTopWidth: 0,
           elevation: 0,
           shadowOpacity: 0,
@@ -47,9 +45,6 @@ export default function AdminTabs() {
           right: 0,
           bottom: 0,
         },
-        tabBarBackground: () => (
-          <View style={styles.tabBarBackground} />
-        ),
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textTertiary,
         tabBarLabelStyle: {
@@ -90,26 +85,7 @@ export default function AdminTabs() {
           ),
         }}
       />
-      <Tab.Screen
-        name="Reservas"
-        component={BookingsScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" size={size} color={color} />
-          ),
-        }}
-      />
     </Tab.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  tabBarBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.backgroundSecondary,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-});

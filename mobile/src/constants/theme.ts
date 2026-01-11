@@ -1,50 +1,51 @@
-// Tema Empresarial - Identidade visual corporativa profissional
 export const theme = {
   colors: {
-    // Cores primárias - Azul corporativo
-    primary: '#2563EB',
-    primaryDark: '#1E40AF',
-    primaryLight: '#3B82F6',
+    // Cores primárias empresariais
+    primary: '#0066CC', // Azul corporativo
+    primaryDark: '#004C99',
+    primaryLight: '#3385D6',
     
-    // Cores secundárias - Cinza neutro corporativo
-    secondary: '#64748B',
-    secondaryLight: '#E2E8F0',
+    // Cores secundárias
+    secondary: '#6C757D', // Cinza neutro
+    secondaryLight: '#ADB5BD',
+    secondaryDark: '#495057',
     
-    // Fundos - Tons neutros claros e branco
-    background: '#F8FAFC',
-    backgroundSecondary: '#FFFFFF',
-    backgroundTertiary: '#F1F5F9',
+    // Fundos
+    background: '#F8F9FA', // Fundo claro neutro
+    backgroundSecondary: '#FFFFFF', // Cards brancos
+    backgroundTertiary: '#E9ECEF', // Elementos secundários
+    backgroundElevated: '#FFFFFF',
     
-    // Textos - Preto e cinza escuro
-    textPrimary: '#1E293B',
-    textSecondary: '#64748B',
-    textTertiary: '#94A3B8',
+    // Textos
+    textPrimary: '#212529', // Preto/dark gray
+    textSecondary: '#6C757D', // Cinza médio
+    textTertiary: '#ADB5BD', // Cinza claro
     textInverse: '#FFFFFF',
     
-    // Bordas - Cinza claro
-    border: '#E2E8F0',
-    borderLight: '#F1F5F9',
-    borderDark: '#CBD5E1',
+    // Bordas
+    border: '#DEE2E6', // Cinza muito claro
+    borderLight: '#E9ECEF',
+    borderDark: '#CED4DA',
     
     // Estados
-    success: '#10B981',
-    successLight: '#D1FAE5',
-    error: '#EF4444',
-    errorLight: '#FEE2E2',
-    warning: '#F59E0B',
-    warningLight: '#FEF3C7',
-    info: '#3B82F6',
-    infoLight: '#DBEAFE',
+    success: '#28A745',
+    successLight: 'rgba(40, 167, 69, 0.1)',
+    error: '#DC3545',
+    errorLight: 'rgba(220, 53, 69, 0.1)',
+    warning: '#FFC107',
+    warningLight: 'rgba(255, 193, 7, 0.1)',
+    info: '#17A2B8',
+    infoLight: 'rgba(23, 162, 184, 0.1)',
     
-    // Status de reserva
-    pending: '#F59E0B',
-    approved: '#10B981',
-    cancelled: '#94A3B8',
+    // Status de reservas
+    pending: '#FFC107',
+    approved: '#28A745',
+    cancelled: '#6C757D',
     
-    // Hover e interações
-    hover: '#EFF6FF',
-    pressed: '#DBEAFE',
-    selected: '#DBEAFE',
+    // Interações
+    hover: 'rgba(0, 102, 204, 0.08)',
+    pressed: 'rgba(0, 102, 204, 0.12)',
+    selected: 'rgba(0, 102, 204, 0.1)',
   },
   
   spacing: {
@@ -61,50 +62,44 @@ export const theme = {
     md: 8,
     lg: 12,
     xl: 16,
+    xxl: 24,
   },
   
   typography: {
     h1: {
       fontSize: 32,
-      fontWeight: '600' as const,
+      fontWeight: '700',
       lineHeight: 40,
-      letterSpacing: 0.5,
     },
     h2: {
       fontSize: 24,
-      fontWeight: '600' as const,
+      fontWeight: '600',
       lineHeight: 32,
-      letterSpacing: 0.5,
     },
     h3: {
       fontSize: 20,
-      fontWeight: '600' as const,
+      fontWeight: '600',
       lineHeight: 28,
-      letterSpacing: 0.5,
-    },
-    body: {
-      fontSize: 14,
-      fontWeight: '400' as const,
-      lineHeight: 20,
-      letterSpacing: 0.3,
     },
     bodyLarge: {
       fontSize: 16,
-      fontWeight: '400' as const,
+      fontWeight: '400',
       lineHeight: 24,
-      letterSpacing: 0.3,
+    },
+    body: {
+      fontSize: 14,
+      fontWeight: '400',
+      lineHeight: 20,
     },
     caption: {
       fontSize: 12,
-      fontWeight: '400' as const,
+      fontWeight: '400',
       lineHeight: 16,
-      letterSpacing: 0.3,
     },
     button: {
-      fontSize: 14,
-      fontWeight: '600' as const,
-      lineHeight: 20,
-      letterSpacing: 1,
+      fontSize: 16,
+      fontWeight: '600',
+      lineHeight: 24,
     },
   },
   
@@ -112,23 +107,23 @@ export const theme = {
     small: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.3,
+      shadowOpacity: 0.05,
       shadowRadius: 2,
-      elevation: 2,
+      elevation: 1,
     },
     medium: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.4,
-      shadowRadius: 4,
-      elevation: 3,
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 2,
     },
     large: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.5,
-      shadowRadius: 8,
-      elevation: 5,
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+      elevation: 4,
     },
   },
 };

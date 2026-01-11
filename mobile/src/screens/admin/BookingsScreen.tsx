@@ -8,11 +8,15 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bookingsService } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../constants/theme';
+import Card from '../../components/Card';
 
 interface Booking {
   id: string;
@@ -38,21 +42,99 @@ export default function BookingsScreen() {
   const insets = useSafeAreaInsets();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<BookingTab>('PENDING');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
-    loadBookings();
-  }, []);
+    resetAndLoad();
+  }, [activeTab, selectedDate]);
 
-  const loadBookings = async () => {
+  const resetAndLoad = async () => {
+    setBookings([]);
+    setCurrentPage(1);
+    setLoading(true);
+    await loadBookings(1, true);
+  };
+
+  const loadBookings = async (page: number = 1, reset: boolean = false) => {
     try {
-      const response = await bookingsService.getAll();
-      setBookings(response.data);
+      const dateString = selectedDate ? selectedDate.toISOString().split('T')[0] : undefined;
+      const response = await bookingsService.getAll(dateString, activeTab, page, 10);
+      
+      const responseData = response.data;
+      // O backend sempre retorna { data: [...], pagination: {...} }
+      const bookingsData = Array.isArray(responseData?.data) 
+        ? responseData.data 
+        : Array.isArray(responseData) 
+          ? responseData 
+          : [];
+      const pagination = responseData?.pagination;
+
+      if (pagination) {
+        setTotalPages(pagination.totalPages);
+        setHasMore(page < pagination.totalPages);
+      } else {
+        setHasMore(false);
+      }
+
+      if (reset) {
+        setBookings(bookingsData);
+      } else {
+        setBookings((prev) => [...prev, ...bookingsData]);
+      }
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível carregar as reservas');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const handleLoadMore = async () => {
+    if (!loadingMore && hasMore && !loading) {
+      setLoadingMore(true);
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      await loadBookings(nextPage, false);
+    }
+  };
+
+  const handleDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      if (date) {
+        setSelectedDate(date);
+        setShowDatePicker(false);
+      } else {
+        setShowDatePicker(false);
+      }
+    } else {
+      // iOS: apenas atualiza a data temporária
+      if (date) {
+        setTempSelectedDate(date);
+      }
+    }
+  };
+
+  const handleConfirmDate = () => {
+    if (tempSelectedDate) {
+      setSelectedDate(tempSelectedDate);
+    }
+    setShowDatePicker(false);
+  };
+
+  const handleCancelDatePicker = () => {
+    setTempSelectedDate(selectedDate);
+    setShowDatePicker(false);
+  };
+
+  const handleClearDate = () => {
+    setSelectedDate(null);
   };
 
   const handleApprove = async (bookingId: string) => {
@@ -64,7 +146,7 @@ export default function BookingsScreen() {
           try {
             await bookingsService.approve(bookingId);
             Alert.alert('Sucesso', 'Reserva aprovada com sucesso');
-            loadBookings();
+            resetAndLoad();
           } catch (error) {
             Alert.alert('Erro', 'Erro ao aprovar reserva');
           }
@@ -81,6 +163,14 @@ export default function BookingsScreen() {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+    });
+  };
+
+  const formatDateFilter = (date: Date) => {
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
     });
   };
 
@@ -110,16 +200,10 @@ export default function BookingsScreen() {
     }
   };
 
-  const pendingBookings = bookings.filter((b) => b.status === 'PENDING');
-  const approvedBookings = bookings.filter((b) => b.status === 'APPROVED');
-  const cancelledBookings = bookings.filter((b) => b.status === 'CANCELLED');
+  // O filtro agora é feito no backend, então bookings já vem filtrado
+  const filteredBookings = bookings;
 
-  const filteredBookings = 
-    activeTab === 'PENDING' ? pendingBookings :
-    activeTab === 'APPROVED' ? approvedBookings :
-    cancelledBookings;
-
-  if (loading) {
+  if (loading && bookings.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -129,6 +213,84 @@ export default function BookingsScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Date Filter */}
+      <View style={styles.filterContainer}>
+            <TouchableOpacity
+              style={styles.dateFilterButton}
+              onPress={() => {
+                setTempSelectedDate(selectedDate);
+                setShowDatePicker(true);
+              }}
+              activeOpacity={0.7}
+            >
+          <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
+          <Text style={styles.dateFilterText}>
+            {selectedDate ? formatDateFilter(selectedDate) : 'Todas as datas'}
+          </Text>
+        </TouchableOpacity>
+        {selectedDate && (
+          <TouchableOpacity
+            style={styles.clearDateButton}
+            onPress={handleClearDate}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close-circle" size={20} color={theme.colors.error} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Date Picker Modal */}
+      {showDatePicker && (
+        <Modal
+          transparent
+          visible={showDatePicker}
+          animationType="fade"
+          onRequestClose={handleCancelDatePicker}
+        >
+          <TouchableOpacity
+            style={styles.datePickerOverlay}
+            activeOpacity={1}
+            onPress={handleCancelDatePicker}
+          >
+            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+                  {Platform.OS === 'ios' && (
+                    <View style={styles.datePickerContainer}>
+                      <View style={styles.datePickerHeader}>
+                        <TouchableOpacity onPress={handleCancelDatePicker}>
+                          <Text style={styles.datePickerCancel}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleConfirmDate}>
+                          <Text style={styles.datePickerConfirm}>Confirmar</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.datePickerWrapper}>
+                        <DateTimePicker
+                          value={tempSelectedDate || selectedDate || new Date()}
+                          mode="date"
+                          display="spinner"
+                          onChange={handleDateChange}
+                          minimumDate={new Date()}
+                          themeVariant="light"
+                          accentColor={theme.colors.primary}
+                        />
+                      </View>
+                    </View>
+                  )}
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePicker
+          value={selectedDate || new Date()}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+          minimumDate={new Date()}
+        />
+      )}
+
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'PENDING' && styles.tabActive]}
@@ -164,7 +326,7 @@ export default function BookingsScreen() {
       <FlatList
         data={filteredBookings}
         renderItem={({ item }) => (
-          <View style={styles.bookingCard}>
+          <Card>
             <View style={styles.bookingHeader}>
               <Text style={styles.roomName}>{item.room.name}</Text>
               <View
@@ -220,16 +382,25 @@ export default function BookingsScreen() {
                 <Text style={styles.approveButtonText}>Aprovar reserva</Text>
               </TouchableOpacity>
             )}
-          </View>
+          </Card>
         )}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom, 20) + 80 }]}
         refreshControl={
           <RefreshControl 
-            refreshing={loading} 
-            onRefresh={loadBookings}
+            refreshing={loading && bookings.length === 0} 
+            onRefresh={resetAndLoad}
             tintColor={theme.colors.primary}
           />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loadingMoreContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            </View>
+          ) : null
         }
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
@@ -260,12 +431,69 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.background,
   },
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.backgroundSecondary,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.sm,
+    ...theme.shadows.small,
+  },
+  dateFilterButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  dateFilterText: {
+    ...theme.typography.body,
+    color: theme.colors.textPrimary,
+  },
+  clearDateButton: {
+    padding: theme.spacing.xs,
+  },
+  datePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  datePickerContainer: {
+    backgroundColor: theme.colors.backgroundSecondary,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  datePickerWrapper: {
+    backgroundColor: theme.colors.backgroundSecondary,
+  },
+  datePickerCancel: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+  },
+  datePickerConfirm: {
+    ...theme.typography.body,
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: theme.colors.backgroundSecondary,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
     paddingHorizontal: theme.spacing.md,
+    ...theme.shadows.small,
   },
   tab: {
     flex: 1,
@@ -290,42 +518,9 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: '600',
   },
-  tabBadge: {
-    backgroundColor: theme.colors.backgroundTertiary,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    minWidth: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabBadgeActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  tabBadgeText: {
-    ...theme.typography.caption,
-    fontWeight: '600',
-    color: theme.colors.textSecondary,
-  },
-  tabBadgeTextActive: {
-    color: theme.colors.textInverse,
-  },
   list: {
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.xxl,
-  },
-  bookingCard: {
-    backgroundColor: theme.colors.backgroundSecondary,
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   bookingHeader: {
     flexDirection: 'row',
@@ -333,8 +528,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.md,
     paddingBottom: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
   },
   roomName: {
     ...theme.typography.h3,
@@ -387,5 +580,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.md,
     textAlign: 'center',
+  },
+  loadingMoreContainer: {
+    paddingVertical: theme.spacing.lg,
+    alignItems: 'center',
   },
 });
