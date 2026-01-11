@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
-  Alert,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -438,15 +437,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: theme.borderRadius.sm,
-  },
-  bookingBlock: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    borderLeftWidth: 4,
-    minHeight: 60,
   },
   bookingBlockAbsolute: {
     position: 'absolute',

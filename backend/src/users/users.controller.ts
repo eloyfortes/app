@@ -22,4 +22,11 @@ export class UsersController {
   approveUser(@Param('id') id: string) {
     return this.usersService.approveUser(id);
   }
+
+  @Patch(':id/promote-premium')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  promoteToPremium(@Param('id') id: string) {
+    return this.usersService.promoteToPremium(id);
+  }
 }

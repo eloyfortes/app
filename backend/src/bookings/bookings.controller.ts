@@ -16,8 +16,16 @@ export class BookingsController {
   }
 
   @Get()
-  findAll(@Request() req) {
-    return this.bookingsService.findAll(req.user.role, req.user.userId);
+  findAll(
+    @Request() req,
+    @Query('date') date?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNumber = page ? parseInt(page, 10) : 1;
+    const limitNumber = limit ? parseInt(limit, 10) : 10;
+    return this.bookingsService.findAll(req.user.role, req.user.userId, date, status, pageNumber, limitNumber);
   }
 
   @Get(':id')
@@ -40,5 +48,10 @@ export class BookingsController {
   @Get('room/:roomId/occupied-slots')
   getOccupiedTimeSlots(@Param('roomId') roomId: string, @Query('date') date: string) {
     return this.bookingsService.getOccupiedTimeSlots(roomId, new Date(date));
+  }
+
+  @Get('room/:roomId/bookings')
+  getRoomBookings(@Param('roomId') roomId: string, @Query('date') date?: string) {
+    return this.bookingsService.getRoomBookings(roomId, date);
   }
 }

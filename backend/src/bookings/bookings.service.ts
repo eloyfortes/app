@@ -49,18 +49,46 @@ export class BookingsService {
       throw new BadRequestException('Não é possível agendar no passado');
     }
 
-    // Verificar se o usuário já tem uma reserva ativa (que ainda não terminou)
+    // Verificar se o usuário já tem uma reserva ativa no mesmo dia (que ainda não terminou)
     const now = new Date();
+    const startTimeDate = new Date(createBookingDto.startTime);
+    
+    // Obter início e fim do dia da nova reserva
+    const dayStart = new Date(startTimeDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(startTimeDate);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    // Verificar se existe uma reserva ativa que está ativa no mesmo dia
+    // Uma reserva está ativa no dia se:
+    // - Começa no mesmo dia E ainda não terminou, OU
+    // - Começa antes do dia mas termina no mesmo dia ou depois (ainda está ativa)
     const existingBooking = await this.prisma.booking.findFirst({
       where: {
         userId,
         status: { in: ['PENDING', 'APPROVED'] },
         endTime: { gt: now }, // Apenas reservas que ainda não terminaram
+        OR: [
+          {
+            // Reserva começa no mesmo dia
+            startTime: {
+              gte: dayStart,
+              lte: dayEnd,
+            },
+          },
+          {
+            // Reserva começa antes mas ainda está ativa no mesmo dia
+            AND: [
+              { startTime: { lt: dayStart } },
+              { endTime: { gt: dayStart } },
+            ],
+          },
+        ],
       },
     });
 
     if (existingBooking) {
-      throw new ConflictException('Você já possui uma reserva ativa. Cancele a reserva atual antes de fazer uma nova.');
+      throw new ConflictException('Você já possui uma reserva ativa neste dia. Cancele a reserva atual ou escolha outro dia.');
     }
 
     // Verificar se a sala existe
@@ -71,6 +99,15 @@ export class BookingsService {
     if (!room || !room.active) {
       throw new NotFoundException('Sala não encontrada ou inativa');
     }
+
+    // Buscar usuário para verificar o role
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    // Se for CLIENT_PREMIUM, aprova automaticamente. Se CLIENT, fica PENDING.
+    const bookingStatus = user?.role === 'CLIENT_PREMIUM' ? 'APPROVED' : 'PENDING';
 
     // Verificar se a sala está disponível no horário
     // Uma reserva conflita se:
@@ -98,6 +135,7 @@ export class BookingsService {
         startTime: createBookingDto.startTime,
         endTime: createBookingDto.endTime,
         expectedDuration: createBookingDto.expectedDuration,
+        status: bookingStatus,
       },
       include: {
         room: true,
@@ -112,9 +150,118 @@ export class BookingsService {
     });
   }
 
-  async findAll(userRole: string, userId?: string) {
+  async findAll(
+    userRole: string,
+    userId?: string,
+    date?: string,
+    status?: string,
+    page: number = 1,
+    limit: number = 10
+  ) {
+    const skip = (page - 1) * limit;
+
+    // Para reservas aprovadas, sempre filtrar a partir de hoje
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Construir filtro de data se fornecido
+    const dateFilter: any = {};
+    if (date) {
+      // Parse a string "YYYY-MM-DD" como data local (não UTC)
+      const [year, month, day] = date.split('-').map(Number);
+      const selectedDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const nextDay = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+
+      dateFilter.startTime = {
+        gte: selectedDate.toISOString(),
+        lt: nextDay.toISOString(),
+      };
+    }
+
+    // Construir filtro de status se fornecido
+    const statusFilter: any = {};
+    if (status && ['PENDING', 'APPROVED', 'CANCELLED'].includes(status)) {
+      statusFilter.status = status;
+      
+      // Para reservas aprovadas, mostrar apenas as futuras (a partir de hoje)
+      if (status === 'APPROVED') {
+        if (date) {
+          // Se há filtro de data específica, garantir que seja >= hoje
+          const [year, month, day] = date.split('-').map(Number);
+          const selectedDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+          const nextDay = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+          
+          if (selectedDate >= today) {
+            // Data selecionada é hoje ou futura, usar filtro normal
+            dateFilter.startTime = {
+              gte: selectedDate.toISOString(),
+              lt: nextDay.toISOString(),
+            };
+          } else {
+            // Data selecionada é no passado, não retornar nada (gte >= lt = vazio)
+            dateFilter.startTime = {
+              gte: today.toISOString(),
+              lt: today.toISOString(),
+            };
+          }
+        } else {
+          // Se não há filtro de data específica, aplicar filtro de data futura
+          dateFilter.startTime = {
+            gte: today.toISOString(),
+          };
+        }
+      }
+    }
+
+    // Combinar filtros
+    const whereClause = {
+      ...dateFilter,
+      ...statusFilter,
+    };
+
     if (userRole === 'ADMIN') {
-      return this.prisma.booking.findMany({
+      const [bookings, total] = await Promise.all([
+        this.prisma.booking.findMany({
+          where: whereClause,
+          include: {
+            room: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { startTime: 'asc' },
+          skip,
+          take: limit,
+        }),
+        this.prisma.booking.count({
+          where: whereClause,
+        }),
+      ]);
+
+      return {
+        data: bookings,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    }
+
+    // Cliente vê apenas suas reservas
+    const clientWhereClause = {
+      userId,
+      ...whereClause,
+    };
+
+    const [bookings, total] = await Promise.all([
+      this.prisma.booking.findMany({
+        where: clientWhereClause,
         include: {
           room: true,
           user: {
@@ -125,25 +272,24 @@ export class BookingsService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
-      });
-    }
+        orderBy: { startTime: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.booking.count({
+        where: clientWhereClause,
+      }),
+    ]);
 
-    // Cliente vê apenas suas reservas
-    return this.prisma.booking.findMany({
-      where: { userId },
-      include: {
-        room: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+    return {
+      data: bookings,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
 
   async findOne(id: string, userId: string, userRole: string) {
@@ -244,6 +390,50 @@ export class BookingsService {
         startTime: true,
         endTime: true,
       },
+    });
+
+    return bookings;
+  }
+
+  async getRoomBookings(roomId: string, date?: string) {
+    const dateFilter: any = {};
+    if (date) {
+      // Parse a string "YYYY-MM-DD" como data local (não UTC)
+      const [year, month, day] = date.split('-').map(Number);
+      const selectedDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const nextDay = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+
+      dateFilter.startTime = {
+        gte: selectedDate.toISOString(),
+        lt: nextDay.toISOString(),
+      };
+    } else {
+      // Se não há data, buscar apenas reservas futuras
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      dateFilter.startTime = {
+        gte: today.toISOString(),
+      };
+    }
+
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        roomId,
+        ...dateFilter,
+        status: {
+          in: ['APPROVED', 'PENDING'],
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { startTime: 'asc' },
     });
 
     return bookings;

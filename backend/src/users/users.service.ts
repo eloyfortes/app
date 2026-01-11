@@ -80,4 +80,28 @@ export class UsersService {
       },
     });
   }
+
+  async promoteToPremium(id: string) {
+    const user = await this.findOne(id);
+    
+    if (user.role === 'ADMIN') {
+      throw new ConflictException('Não é possível promover um administrador');
+    }
+    
+    if (user.role === 'CLIENT_PREMIUM') {
+      throw new ConflictException('Usuário já é premium');
+    }
+    
+    return this.prisma.user.update({
+      where: { id },
+      data: { role: 'CLIENT_PREMIUM' },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        approved: true,
+      },
+    });
+  }
 }
