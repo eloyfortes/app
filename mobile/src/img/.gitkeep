@@ -1,0 +1,7 @@
+# Adicione aqui as imagens:
+# - login.webp (imagem de fundo da tela de login)
+# - logo.png ou logo.svg (logo da empresa SPHAUS)
+
+# Nota: Para usar SVG, você precisará instalar react-native-svg:
+# npm install react-native-svg
+# E então usar SvgUri ou criar um componente SVG

@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "SPHAUS - SALAS",
+    "slug": "sphaus-salas",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0066CC"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sphaus.salas"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0066CC"
+      },
+      "package": "com.sphaus.salas"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
