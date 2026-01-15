@@ -56,12 +56,13 @@ export const roomsService = {
 };
 
 export const bookingsService = {
-  getAll: (date?: string, status?: string, page?: number, limit?: number) => {
+  getAll: (date?: string, status?: string, page?: number, limit?: number, showCompleted?: boolean) => {
     const params: any = {};
     if (date) params.date = date;
     if (status) params.status = status;
     if (page) params.page = page;
     if (limit) params.limit = limit;
+    if (showCompleted !== undefined) params.showCompleted = showCompleted.toString();
     return api.get('/bookings', { params });
   },
   getById: (id: string) => api.get(`/bookings/${id}`),

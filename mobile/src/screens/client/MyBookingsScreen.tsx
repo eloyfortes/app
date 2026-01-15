@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -41,12 +42,13 @@ export default function MyBookingsScreen() {
   const [activeTab, setActiveTab] = useState<BookingTab>('APPROVED');
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const isPremium = user?.role === 'CLIENT_PREMIUM';
 
   useEffect(() => {
     resetAndLoad();
-  }, [activeTab]);
+  }, [activeTab, showCompleted]);
 
   const resetAndLoad = async () => {
     setBookings([]);
@@ -57,7 +59,9 @@ export default function MyBookingsScreen() {
 
   const loadBookings = async (page: number = 1, reset: boolean = false) => {
     try {
-      const response = await bookingsService.getAll(undefined, activeTab, page, 10);
+      // Passar showCompleted apenas para a aba APPROVED
+      const shouldShowCompleted = activeTab === 'APPROVED' ? showCompleted : true;
+      const response = await bookingsService.getAll(undefined, activeTab, page, 10, shouldShowCompleted);
       
       const responseData = response.data;
       // O backend sempre retorna { data: [...], pagination: {...} }
@@ -220,18 +224,27 @@ export default function MyBookingsScreen() {
     return tabs;
   };
 
-  // O filtro agora é feito no backend, então bookings já vem filtrado
+  // O filtro agora é feito no backend
   const filteredBookings = bookings;
 
-  const renderBooking = ({ item }: { item: Booking }) => (
-    <Card style={styles.bookingCard}>
-      {/* Header com Sala */}
-      <View style={styles.cardHeader}>
-        <View style={styles.salaContainer}>
-          <Text style={styles.salaLabel}>SALA</Text>
-          <Text style={styles.salaName}>{item.room.name}</Text>
+  const renderBooking = ({ item }: { item: Booking }) => {
+    // Badge "Concluído" só deve aparecer para reservas APPROVED que já passaram da data
+    const showCompletedBadge = item.status === 'APPROVED' && isCompleted(item.endTime);
+    
+    return (
+      <Card style={styles.bookingCard}>
+        {/* Header com Sala */}
+        <View style={styles.cardHeader}>
+          <View style={styles.salaContainer}>
+            <Text style={styles.salaLabel}>SALA</Text>
+            <Text style={styles.salaName}>{item.room.name}</Text>
+          </View>
+          {showCompletedBadge && (
+            <View style={styles.completedBadge}>
+              <Text style={styles.completedBadgeText}>Concluído</Text>
+            </View>
+          )}
         </View>
-      </View>
 
       {/* Informações principais - Início, Fim e Duração */}
       <View style={styles.bookingInfo}>
@@ -284,7 +297,8 @@ export default function MyBookingsScreen() {
         </TouchableOpacity>
       )}
     </Card>
-  );
+    );
+  };
 
   if (loading && bookings.length === 0) {
     return (
@@ -328,6 +342,19 @@ export default function MyBookingsScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Filtro de Concluídos */}
+      {activeTab === 'APPROVED' && (
+        <View style={styles.filterContainer}>
+          <Text style={styles.filterLabel}>Mostrar concluídos</Text>
+          <Switch
+            value={showCompleted}
+            onValueChange={setShowCompleted}
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary + '80' }}
+            thumbColor={showCompleted ? theme.colors.primary : theme.colors.textTertiary}
+          />
+        </View>
+      )}
 
       <FlatList
         data={filteredBookings}
@@ -552,5 +579,33 @@ const styles = StyleSheet.create({
   loadingMoreContainer: {
     paddingVertical: theme.spacing.lg,
     alignItems: 'center',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: theme.colors.backgroundSecondary,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  filterLabel: {
+    ...theme.typography.body,
+    color: theme.colors.textPrimary,
+    fontWeight: '500',
+  },
+  completedBadge: {
+    backgroundColor: theme.colors.secondary,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  completedBadgeText: {
+    ...theme.typography.caption,
+    color: theme.colors.textInverse,
+    fontWeight: '600',
+    fontSize: 11,
   },
 });

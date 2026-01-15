@@ -65,11 +65,20 @@ export default function RoomCalendarScreen({ room, visible, onClose }: RoomCalen
     setLoading(true);
     try {
       const dateString = selectedDate.toISOString().split('T')[0];
+      console.log('[RoomCalendar] Carregando bookings - roomId:', room.id, 'date:', dateString);
       const response = await bookingsService.getRoomBookings(room.id, dateString);
-      setBookings(response.data || []);
+      console.log('[RoomCalendar] Resposta completa:', JSON.stringify(response, null, 2));
+      console.log('[RoomCalendar] response.data:', response.data);
+      console.log('[RoomCalendar] Tipo de response.data:', typeof response.data);
+      console.log('[RoomCalendar] É array?', Array.isArray(response.data));
+      const bookingsData = response.data || [];
+      console.log('[RoomCalendar] Bookings carregados:', bookingsData.length, bookingsData);
+      setBookings(bookingsData);
     } catch (error: any) {
+      console.error('[RoomCalendar] Erro ao carregar reservas:', error);
+      console.error('[RoomCalendar] Erro response:', error.response?.data);
+      console.error('[RoomCalendar] Erro status:', error.response?.status);
       showError('Erro ao carregar reservas da sala');
-      console.error('Erro ao carregar reservas:', error);
     } finally {
       setLoading(false);
     }
@@ -151,10 +160,11 @@ export default function RoomCalendarScreen({ room, visible, onClose }: RoomCalen
 
   // Verifica se esta hora está ocupada por uma reserva (incluindo reservas que cruzam)
   const isHourOccupied = (hour: number): boolean => {
-    const hourStart = new Date(selectedDate);
-    hourStart.setHours(hour, 0, 0, 0);
-    const hourEnd = new Date(selectedDate);
-    hourEnd.setHours(hour + 1, 0, 0, 0);
+    const year = selectedDate.getUTCFullYear();
+    const month = selectedDate.getUTCMonth();
+    const day = selectedDate.getUTCDate();
+    const hourStart = new Date(Date.UTC(year, month, day, hour, 0, 0, 0));
+    const hourEnd = new Date(Date.UTC(year, month, day, hour + 1, 0, 0, 0));
 
     return bookings.some((booking) => {
       if (booking.status === 'CANCELLED') return false;
@@ -204,15 +214,29 @@ export default function RoomCalendarScreen({ room, visible, onClose }: RoomCalen
               {/* Container para reservas que cruzam múltiplas horas */}
               <View style={styles.bookingsOverlay}>
                 {bookings
-                  .filter((booking) => booking.status !== 'CANCELLED')
+                  .filter((booking) => {
+                    const notCancelled = booking.status !== 'CANCELLED';
+                    console.log('[RoomCalendar] Booking filtrado:', booking.id, 'status:', booking.status, 'notCancelled:', notCancelled);
+                    return notCancelled;
+                  })
                   .map((booking) => {
                     const start = new Date(booking.startTime);
                     const end = new Date(booking.endTime);
-                    const dayStart = new Date(selectedDate);
-                    dayStart.setHours(8, 0, 0, 0);
+                    // Criar dayStart usando UTC para evitar problemas de timezone
+                    // Pegar apenas a data (ano, mês, dia) do selectedDate
+                    const year = selectedDate.getUTCFullYear();
+                    const month = selectedDate.getUTCMonth();
+                    const day = selectedDate.getUTCDate();
+                    const dayStart = new Date(Date.UTC(year, month, day, 8, 0, 0, 0));
+
+                    console.log('[RoomCalendar] Renderizando booking:', booking.id);
+                    console.log('[RoomCalendar] start:', start.toISOString(), 'end:', end.toISOString());
+                    console.log('[RoomCalendar] selectedDate:', selectedDate.toISOString(), 'dayStart:', dayStart.toISOString());
 
                     const startMinutes = (start.getTime() - dayStart.getTime()) / (1000 * 60);
                     const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+
+                    console.log('[RoomCalendar] startMinutes:', startMinutes, 'durationMinutes:', durationMinutes);
 
                     // Altura em pixels: cada hora tem 80px + 4px de margem (theme.spacing.xs)
                     const hourHeightPx = 80;
@@ -229,6 +253,8 @@ export default function RoomCalendarScreen({ room, visible, onClose }: RoomCalen
                     const fullHours = Math.floor(totalHours);
                     const extraMinutes = (totalHours - fullHours) * 60;
                     const heightPx = (fullHours * (hourHeightPx + marginBottomPx)) + (extraMinutes / 60) * hourHeightPx - marginBottomPx;
+
+                    console.log('[RoomCalendar] Posição calculada - topPx:', topPx, 'heightPx:', heightPx, 'startHour:', startHour);
 
                     return (
                       <TouchableOpacity
@@ -253,7 +279,9 @@ export default function RoomCalendarScreen({ room, visible, onClose }: RoomCalen
                         <Text style={styles.bookingTime}>
                           {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
                         </Text>
-                        <Text style={styles.bookingUser}>{booking.user.name}</Text>
+                        <Text style={styles.bookingUser}>
+                          {booking.user.name} - {booking.user.email}
+                        </Text>
                         <Text style={styles.bookingDuration}>
                           {formatDuration(booking.expectedDuration)}
                         </Text>

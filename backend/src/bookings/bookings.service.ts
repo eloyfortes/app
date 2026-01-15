@@ -156,13 +156,12 @@ export class BookingsService {
     date?: string,
     status?: string,
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
+    showCompleted: boolean = true
   ) {
     const skip = (page - 1) * limit;
 
-    // Para reservas aprovadas, sempre filtrar a partir de hoje
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
     
     // Construir filtro de data se fornecido
     const dateFilter: any = {};
@@ -183,33 +182,12 @@ export class BookingsService {
     if (status && ['PENDING', 'APPROVED', 'CANCELLED'].includes(status)) {
       statusFilter.status = status;
       
-      // Para reservas aprovadas, mostrar apenas as futuras (a partir de hoje)
-      if (status === 'APPROVED') {
-        if (date) {
-          // Se há filtro de data específica, garantir que seja >= hoje
-          const [year, month, day] = date.split('-').map(Number);
-          const selectedDate = new Date(year, month - 1, day, 0, 0, 0, 0);
-          const nextDay = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
-          
-          if (selectedDate >= today) {
-            // Data selecionada é hoje ou futura, usar filtro normal
-            dateFilter.startTime = {
-              gte: selectedDate.toISOString(),
-              lt: nextDay.toISOString(),
-            };
-          } else {
-            // Data selecionada é no passado, não retornar nada (gte >= lt = vazio)
-            dateFilter.startTime = {
-              gte: today.toISOString(),
-              lt: today.toISOString(),
-            };
-          }
-        } else {
-          // Se não há filtro de data específica, aplicar filtro de data futura
-          dateFilter.startTime = {
-            gte: today.toISOString(),
-          };
-        }
+      // Para reservas aprovadas, aplicar filtro de concluídos se necessário
+      if (status === 'APPROVED' && !showCompleted) {
+        // Se showCompleted = false, mostrar apenas reservas não concluídas (endTime >= agora)
+        dateFilter.endTime = {
+          gte: now.toISOString(),
+        };
       }
     }
 
@@ -396,6 +374,7 @@ export class BookingsService {
   }
 
   async getRoomBookings(roomId: string, date?: string) {
+    console.log('[BookingsService] getRoomBookings chamado - roomId:', roomId, 'date:', date);
     const dateFilter: any = {};
     if (date) {
       // Parse a string "YYYY-MM-DD" como data local (não UTC)
@@ -407,6 +386,10 @@ export class BookingsService {
         gte: selectedDate.toISOString(),
         lt: nextDay.toISOString(),
       };
+      console.log('[BookingsService] Filtro de data aplicado:', {
+        gte: selectedDate.toISOString(),
+        lt: nextDay.toISOString(),
+      });
     } else {
       // Se não há data, buscar apenas reservas futuras
       const today = new Date();
@@ -414,16 +397,20 @@ export class BookingsService {
       dateFilter.startTime = {
         gte: today.toISOString(),
       };
+      console.log('[BookingsService] Filtro de data futura aplicado:', today.toISOString());
     }
 
-    const bookings = await this.prisma.booking.findMany({
-      where: {
-        roomId,
-        ...dateFilter,
-        status: {
-          in: ['APPROVED', 'PENDING'],
-        },
+    const whereClause = {
+      roomId,
+      ...dateFilter,
+      status: {
+        in: ['APPROVED', 'PENDING'],
       },
+    };
+    console.log('[BookingsService] Where clause:', JSON.stringify(whereClause, null, 2));
+
+    const bookings = await this.prisma.booking.findMany({
+      where: whereClause,
       include: {
         user: {
           select: {
@@ -435,6 +422,9 @@ export class BookingsService {
       },
       orderBy: { startTime: 'asc' },
     });
+
+    console.log('[BookingsService] Bookings encontrados:', bookings.length);
+    console.log('[BookingsService] Bookings:', JSON.stringify(bookings, null, 2));
 
     return bookings;
   }
